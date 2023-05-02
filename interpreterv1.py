@@ -37,7 +37,7 @@ class Interpreter(IB):
                 methods.append(field_or_method)
         # fields = [field for field in def_list if field[0] == 'field']
         # methods = [method for method in def_list if method[0] == 'method']
-        return ClassDefinition(fields=fields, methods=methods)
+        return ClassDefinition(fields=fields, methods=methods, interpreter = self)
 
     def print_line_nums(self, parsed_program):
         for item in parsed_program:
@@ -48,14 +48,14 @@ class Interpreter(IB):
 
 class ClassDefinition:
 # constructor for a ClassDefinition 
-    def __init__(self, fields, methods):
+    def __init__(self, fields, methods, interpreter):
        self.my_methods = methods 
        self.my_fields = fields
-       #self.interpreter = interpreter
+       self.interpreter = interpreter
 
     # uses the definition of a class to create and return an instance of it
     def instantiate_object(self):
-        obj = ObjectDefinition()
+        obj = ObjectDefinition(self.interpreter)
         for method in self.my_methods:
             obj.add_method(method)
         for field in self.my_fields:
@@ -63,7 +63,8 @@ class ClassDefinition:
         return obj
 #
 class ObjectDefinition: 
-    def __init__(self):
+    def __init__(self, interpreter):
+        self.interpreter = interpreter
         self.method_defs = {}
         self.field_defs = {}
         self.method_params = {}
@@ -82,7 +83,7 @@ class ObjectDefinition:
         method_params, statement = self.__find_method(method_name)
         #converting statement list of lists in to just a list.
         if len(method_params) != len(parameters):
-            IB.error('ErrorType.TYPE_ERROR')
+            IB.error(self.interpreter,'ErrorType.TYPE_ERROR')
         else:
             for i in range(len(parameters)):
                 self.method_params[self.what_method][method_params[i]] = (parameters[i], type(parameters[i]))  
@@ -93,7 +94,7 @@ class ObjectDefinition:
         if method_name in self.method_defs:
             return self.method_defs[method_name] #1 represents the method itself
         else:
-            IB.error('ErrorType.NAME_ERROR')
+            IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
 
     def add_method(self, method):
         #name -> params, statement
@@ -117,8 +118,8 @@ class ObjectDefinition:
             if type(word) is list and word[0] == 'call':
                 res += str(self.__execute_call_statement(word[1:]))
         
-        print(res)
-        #IB.output(self= Interpreter, val=res)
+        #print(res)
+        IB.output(self=self.interpreter, val=res)
         return True
     
     def __execute_input_statement(self, statement):
