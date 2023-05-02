@@ -73,7 +73,6 @@ class ObjectDefinition:
         self.field_defs = {}
         self.method_params = {}
         self.what_method = ""
-        self.save_method_control_flo = ""
         self.operators = {'+' : (operator.add, False), '-' : (operator.sub, False),'*' : (operator.mul, False), 
                             '/' : (operator.truediv, False),'%' : (operator.mod, False), '>' : (operator.gt, True),
                             '<' : (operator.lt, True),'>=' : (operator.ge, True), '<=' : (operator.le, True),
@@ -158,7 +157,7 @@ class ObjectDefinition:
     
     def __execute_if_statement(self,statement):
         condition, body = statement
-        self.save_method_control_flo = self.what_method
+        save_method_control_flo = self.what_method
         cond = self.__eval_exp(condition)
         if type(cond) is not bool:
             raise Exception
@@ -168,17 +167,13 @@ class ObjectDefinition:
             self.method_params[IB.IF_DEF] = self.method_params[self.what_method] 
             res = self.call_method( IB.IF_DEF, [])
             self.method_params[self.what_method] = self.method_params[IB.IF_DEF]
-            # del self.method_params[IB.IF_DEF]
-            # del self.method_defs[IB.IF_DEF]
-            self.what_method = self.save_method_control_flo
+            self.what_method = save_method_control_flo
             return res
         return None
     
     def __execute_return_statement(self,statement):
         if type(statement[0]) is list:
             pass    # this is likely a call function
-
-        self.what_method = self.save_method_control_flo
         if IB.IF_DEF in list(self.method_defs.keys()):
             self.method_params[self.what_method] = self.method_params[IB.IF_DEF]
         if statement[0] in list(self.method_params[self.what_method].keys()):
@@ -365,8 +360,28 @@ def main():
                                 '(return result))))',
                             '))']
     
+    nested_flow_ex = ['(class main',
+                    '(field num 0)',
+                    '(field result 1)',
+                    '(method main ()',
+                        '(begin',
+                            '(print "Enter a number: ")',
+                            '(inputi num)',
+                            '(print num " factorial is " (call me factorial num))))',
+                            '',
+                    '(method factorial (n)',
+                    '(begin'
+                        '(set result 1)',
+                        '(while (> n 0)',
+                            '(begin',
+                                '(set result (* n result))',
+                                '(print result)',
+                                '(set n (- n 1))))',
+                        '(return result))))']
+    
+    # Class referencing next
 
-    input = program_ex
+    input = nested_flow_ex
     example = Interpreter()
     example.run(input)
     #example.print_line_nums(example.parsed_program)
