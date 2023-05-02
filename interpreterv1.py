@@ -37,7 +37,7 @@ class Interpreter(IB):
                 methods.append(field_or_method)
         # fields = [field for field in def_list if field[0] == 'field']
         # methods = [method for method in def_list if method[0] == 'method']
-        return ClassDefinition(fields, methods)
+        return ClassDefinition(fields=fields, methods=methods)
 
     def print_line_nums(self, parsed_program):
         for item in parsed_program:
@@ -46,17 +46,12 @@ class Interpreter(IB):
             else:
                 self.print_line_nums(item)
 
-
-
-
-#
-
 class ClassDefinition:
 # constructor for a ClassDefinition 
     def __init__(self, fields, methods):
        self.my_methods = methods 
        self.my_fields = fields
-       # ... 
+       #self.interpreter = interpreter
 
     # uses the definition of a class to create and return an instance of it
     def instantiate_object(self):
@@ -120,10 +115,10 @@ class ObjectDefinition:
                     word = str(self.field_defs[word][0]) 
                 res += word.replace('"', "")
             if type(word) is list and word[0] == 'call':
-                
                 res += str(self.__execute_call_statement(word[1:]))
         
         print(res)
+        #IB.output(self= Interpreter, val=res)
         return True
     
     def __execute_input_statement(self, statement):
@@ -141,10 +136,15 @@ class ObjectDefinition:
         else:
             params = []
             for arg in list(args):
-                if arg in list(self.method_params[self.what_method].keys()):
+                if type(arg) is list:
+                    if arg[0] in list(self.operators.keys()):
+                        params.append(self.__eval_exp(arg))
+                elif arg in list(self.method_params[self.what_method].keys()):
                     params.append(self.method_params[self.what_method][arg][0])
                 elif arg in list(self.field_defs.keys()):
-                    params.append(self.field_defs[arg][0]) 
+                    params.append(self.field_defs[arg][0])
+                elif arg.replace("-","").isnumeric():
+                    params.append(int(arg))
         return self.call_method(method_name, params)
     
     def __execute_while_statement(self,statement):
@@ -156,24 +156,34 @@ class ObjectDefinition:
         return res
     
     def __execute_if_statement(self,statement):
-        condition, body = statement
+        if len(statement) == 2:
+            condition, if_clause = statement
+            else_clause = None
+        elif len(statement) == 3:
+            condition, if_clause, else_clause = statement
         save_method_control_flo = self.what_method
         cond = self.__eval_exp(condition)
         if type(cond) is not bool:
             raise Exception
 
-        if cond:
-            self.method_defs[IB.IF_DEF] = ([], [body])
-            self.method_params[IB.IF_DEF] = self.method_params[self.what_method] 
-            res = self.call_method( IB.IF_DEF, [])
-            self.method_params[self.what_method] = self.method_params[IB.IF_DEF]
-            self.what_method = save_method_control_flo
-            return res
-        return None
+        if cond: body = if_clause
+        elif not else_clause: return else_clause
+        else: body = else_clause
+        
+        res = None
+        self.method_defs[IB.IF_DEF] = ([], [body])
+        self.method_params[IB.IF_DEF] = self.method_params[self.what_method] 
+        res = self.call_method( IB.IF_DEF, [])
+        self.method_params[self.what_method] = self.method_params[IB.IF_DEF]
+        self.what_method = save_method_control_flo
+        return res
     
     def __execute_return_statement(self,statement):
         if type(statement[0]) is list:
-            pass    # this is likely a call function
+            if statement[0][0] in list(self.operators.keys()):
+                return self.__eval_exp(statement[0])
+            if statement[0][0] == IB.CALL_DEF:
+                return self.__execute_call_statement(statement[0])
         if IB.IF_DEF in list(self.method_defs.keys()):
             self.method_params[self.what_method] = self.method_params[IB.IF_DEF]
         if statement[0] in list(self.method_params[self.what_method].keys()):
@@ -238,7 +248,12 @@ class ObjectDefinition:
         filled_in_exp = []
         for i,term in enumerate(expression):
             expr_val = term
-            if term.replace('.',"").isnumeric():
+            if type(term) is list:
+                if term[0] in list(self.operators.keys()):
+                    expr_val = self.__eval_exp(term)
+                if term[0] == IB.CALL_DEF:
+                    expr_val = self.__execute_call_statement(term[1:])
+            elif term.replace('.',"").isnumeric():
                 expr_val = int(term)
             elif '"' in term:
                 expr_val = term   # string
@@ -254,10 +269,8 @@ class ObjectDefinition:
         
         if op == operator.neg:
             if len(filled_in_exp[1:]) != 1: raise Exception
-            elif type(filled_in_exp[1]) is list: filled_in_exp[1] = self.__eval_exp(expression[1])
-            return op(filled_in_exp[1])
-
-        if is_boolean_operator:
+            res = op(filled_in_exp[1])
+        elif is_boolean_operator:
             if len(filled_in_exp[1:]) != 2: raise Exception
             res = op(filled_in_exp[1], filled_in_exp[2])
         else:
@@ -321,67 +334,18 @@ def main():
                                 '(set n (- n 1))))',
                         '(return result))))']
     
-    class_ex =['(class person',
-         '(field name "")',
-         '(field age 0)',
-         '(method init (n a) (begin (set name n) (set age a)))',
-         '(method talk (to_whom) (print name " says hello to " to_whom))',
-         '(method get_age () (return age))',
-        ')',
-      '(class main',
-       '(field p null)',
-       '(method tell_joke (to_whom) (print "Hey " to_whom ", knock knock!"))',
-       '(method main ()',
-'(begin',
-            '(call me tell_joke "Leia")',
-            '(set p (new person))',
-            '(call p init "Siddarth" 25)',  
-'(call p talk "Boyan")',       
-'(print \"Siddarth\'s age is \" (call p get_age))',
-')', ')',
-')']
-
-
-    test_if_set_ex = ['(class main',
-                    '(field num 0)',
-                    '(field result 3)',
-                    '(method main ()',
-                        '(begin',
-                            '(print "Enter a number: ")',
-                            '(inputi num)',
-                            '(print num " factorial is " (call me factorial num))))',
-                            '',
-                    '(method factorial (n)',
-                    '(begin'
-                        '(set result 1)',
-                        '(if (> n 0)',
-                            '(begin',
-                                '(set result (* n result))',
-                                '(return result))))',
-                            '))']
-    
-    nested_flow_ex = ['(class main',
-                    '(field num 0)',
-                    '(field result 1)',
-                    '(method main ()',
-                        '(begin',
-                            '(print "Enter a number: ")',
-                            '(inputi num)',
-                            '(print num " factorial is " (call me factorial num))))',
-                            '',
-                    '(method factorial (n)',
-                    '(begin'
-                        '(set result 1)',
-                        '(while (> n 0)',
-                            '(begin',
-                                '(set result (* n result))',
-                                '(print result)',
-                                '(set n (- n 1))))',
-                        '(return result))))']
-    
+    brian_test = ['(class main',
+                    '(method fact (n)',
+                        '(if (== n 1)',
+                            '(return 1)',                               # if clause                             
+                            '(return (* n (call me fact (- n 1))))',    # else clause
+                        ')',
+                    ')',
+                    '(method main () (print (call me fact 10)))',        # output is 10! = 3,628,800
+                ')'] 
     # Class referencing next
 
-    input = nested_flow_ex
+    input = brian_test
     example = Interpreter()
     example.run(input)
     #example.print_line_nums(example.parsed_program)
