@@ -73,7 +73,7 @@ class ObjectDefinition:
                             '/' : (operator.truediv, False),'%' : (operator.mod, False), '>' : (operator.gt, True),
                             '<' : (operator.lt, True),'>=' : (operator.ge, True), '<=' : (operator.le, True),
                             '==' :(operator.eq, True), '!' : (operator.truth, True), '!=' : (operator.ne, True),
-                            '&' : (operator.and_, True) ,'|' : (operator.or_, True)}
+                            '&' : (operator.and_, True) ,'|' : (operator.or_, True), 'true' : (True, True), 'false' : (False, True)}
 
     # Interpret the specified method using the provided parameters
     def call_method(self, method_name, parameters):
@@ -118,7 +118,6 @@ class ObjectDefinition:
             if type(word) is list and word[0] == 'call':
                 res += str(self.__execute_call_statement(word[1:]))
         
-        #print(res)
         IB.output(self=self.interpreter, val=res)
         return True
     
@@ -157,17 +156,16 @@ class ObjectDefinition:
         return res
     
     def __execute_if_statement(self,statement):
-        if len(statement) == 2:
+        try:
+            condition, if_clause, else_clause = statement
+        except:
             condition, if_clause = statement
             else_clause = None
-        elif len(statement) == 3:
-            condition, if_clause, else_clause = statement
+        condition = self.__eval_exp(condition)
+        if type(condition) is not bool: raise Exception
+        
         save_method_control_flo = self.what_method
-        cond = self.__eval_exp(condition)
-        if type(cond) is not bool:
-            raise Exception
-
-        if cond: body = if_clause
+        if condition: body = if_clause
         elif not else_clause: return else_clause
         else: body = else_clause
         
@@ -236,7 +234,7 @@ class ObjectDefinition:
 
     def __format_values(self,string):
         res = ""
-        if string.replace(".", "").isnumeric(): 
+        if string.replace(".", "").replace("-","").isnumeric(): 
             res = int(string)
         elif string == 'false' or string == 'true':
             res = eval(string.capitalize())
@@ -254,7 +252,7 @@ class ObjectDefinition:
                     expr_val = self.__eval_exp(term)
                 if term[0] == IB.CALL_DEF:
                     expr_val = self.__execute_call_statement(term[1:])
-            elif term.replace('.',"").isnumeric():
+            elif term.replace('.',"").replace("-","").isnumeric():
                 expr_val = int(term)
             elif '"' in term:
                 expr_val = term   # string
@@ -271,6 +269,8 @@ class ObjectDefinition:
         if op == operator.neg:
             if len(filled_in_exp[1:]) != 1: raise Exception
             res = op(filled_in_exp[1])
+        elif type(op) is bool:
+            res = op
         elif is_boolean_operator:
             if len(filled_in_exp[1:]) != 2: raise Exception
             res = op(filled_in_exp[1], filled_in_exp[2])
@@ -329,7 +329,7 @@ def main():
                     '(method factorial (n)',
                     '(begin'
                         '(set result 1)',
-                        '(while (> n 0)',
+                        '(if (false)',
                             '(begin',
                                 '(set result (* n result))',
                                 '(set n (- n 1))))',
@@ -346,7 +346,7 @@ def main():
                 ')'] 
     # Class referencing next
 
-    input = brian_test
+    input = program_ex
     example = Interpreter()
     example.run(input)
     #example.print_line_nums(example.parsed_program)
