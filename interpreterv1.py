@@ -227,7 +227,7 @@ class ObjectDefinition:
                 res = self.__eval_exp(value)
                 self.method_params[self.what_method][name] = (res, type(res)) 
             elif value[0] == IB.CALL_DEF:
-                self.__execute_call_statement(value) 
+                self.__execute_call_statement(value[1:]) 
         else:
             value = self.__format_values(value)
             if name in list(self.method_params[self.what_method].keys()):
