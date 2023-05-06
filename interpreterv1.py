@@ -128,6 +128,7 @@ class ObjectDefinition:
                 if word[0] in list(self.operators.keys()):
                     res += str(self.__eval_exp(word)).lower()
 
+
         IB.output(self=self.interpreter, val=res)
         return
     
@@ -290,9 +291,12 @@ class ObjectDefinition:
             elif expr_val == term:                                                          # out of scope
                 raise Exception
             filled_in_exp.append(expr_val)
-        if op == operator.not_:
+        
+        if op is operator.not_:
             if len(filled_in_exp[1:]) != 1: raise Exception
-            elif type(filled_in_exp[1][0]) is not bool: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
+            if type(filled_in_exp[1]) is not tuple: 
+                filled_in_exp[1] = (filled_in_exp[1], type(filled_in_exp[1]))
+            if type(filled_in_exp[1][0]) is not bool: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
             res = op(filled_in_exp[1][0])
         elif is_boolean_operator:
             if (len(filled_in_exp)) == 1:
