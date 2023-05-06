@@ -131,6 +131,7 @@ class ObjectDefinition:
         IB.output(self=self.interpreter, val=res)
         return
     
+    
     def __execute_input_statement(self, statement):
         res = IB.get_input(self.interpreter) 
         res = self.__format_values(res)    
