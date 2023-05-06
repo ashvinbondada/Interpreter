@@ -131,7 +131,6 @@ class ObjectDefinition:
         IB.output(self=self.interpreter, val=res)
         return
     
-    
     def __execute_input_statement(self, statement):
         res = IB.get_input(self.interpreter) 
         res = self.__format_values(res)    
@@ -317,7 +316,7 @@ class ObjectDefinition:
                     o2 = stack.pop()
                     if type(o1) != type(o2): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
                     stack.append(c[0](o1,o2))
-            res = stack.pop()
+            res = int(stack.pop())
         return res
     
 
