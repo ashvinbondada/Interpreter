@@ -126,7 +126,7 @@ class ObjectDefinition:
                 if word[0] == 'call':
                     res += str(self.__execute_call_statement(word[1:]))
                 if word[0] in list(self.operators.keys()):
-                    res += str(self.__eval_exp(word))
+                    res += str(self.__eval_exp(word)).lower()
 
         IB.output(self=self.interpreter, val=res)
         return
