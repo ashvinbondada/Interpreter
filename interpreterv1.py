@@ -147,6 +147,7 @@ class ObjectDefinition:
         object_reference, method_name, *args = statement
         # if this is not me, u need a global class tracker and then refer to that objects run method
         if object_reference != 'me':
+            print(statement)
             raise Exception
         else:
             params = []
@@ -204,7 +205,7 @@ class ObjectDefinition:
             if statement[0][0] in list(self.operators.keys()):
                 return self.__eval_exp(statement[0])
             if statement[0][0] == IB.CALL_DEF:
-                return self.__execute_call_statement(statement[0])
+                return self.__execute_call_statement(statement[0][1:])
         if statement[0] in list(self.method_params[self.what_method].keys()):
             return self.method_params[self.what_method][statement[0]][0]
         if statement[0] in list(self.field_defs.keys()): 
