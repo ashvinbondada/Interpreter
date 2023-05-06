@@ -273,21 +273,24 @@ class ObjectDefinition:
         return res
     
     def __eval_exp(self,expression):
+        if type(expression[0]) is int: return expression[0]
         if expression[0] not in list(self.operators.keys()): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
         op, is_boolean_operator = self.operators[expression[0]]
         filled_in_exp = []
         for i,term in enumerate(expression):
             expr_val = term
             if type(term) is list:  
-                if term[0] in list(self.operators.keys()):                                  # expression
-                    expr_val = self.__eval_exp(term)
-                if term[0] == IB.CALL_DEF:                                                  # method call
-                    expr_val = self.__execute_call_statement(term[1:])                                    
+                if term[0] in list(self.operators.keys()):
+                    res = self.__eval_exp(term)                                  # expression
+                    expr_val = (res, type(res))
+                if term[0] == IB.CALL_DEF:    
+                    res = self.__eval_exp([self.__execute_call_statement(term[1:])])                           # method call
+                    expr_val = (res, type(res))                                    
             elif term in list(self.method_params[self.what_method].keys()):                 # method parameter
                 expr_val = self.method_params[self.what_method][term]
             elif term in list(self.field_defs.keys()):                                      # field variable
                 expr_val = self.field_defs[term]
-            elif term.replace('.',"").replace("-","").isnumeric():                          # number
+            elif str(term).replace('.',"").replace("-","").isnumeric():                          # number
                 expr_val = (int(term), type(int(term)))
             elif '"' in term:                                                               # string
                 expr_val = (str(term), type(str(term))) 
@@ -296,11 +299,9 @@ class ObjectDefinition:
             elif expr_val == term:                                                          # out of scope
                 raise Exception
             filled_in_exp.append(expr_val)
-        
+
         if op is operator.not_:
             if len(filled_in_exp[1:]) != 1: raise Exception
-            if type(filled_in_exp[1]) is not tuple: 
-                filled_in_exp[1] = (filled_in_exp[1], type(filled_in_exp[1]))
             if type(filled_in_exp[1][0]) is not bool: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
             res = op(filled_in_exp[1][0])
         elif is_boolean_operator:
