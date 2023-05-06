@@ -229,7 +229,12 @@ class ObjectDefinition:
                 self.__execute_call_statement(value) 
         else:
             value = self.__format_values(value)
-            self.method_params[self.what_method][name] = (value, type(value))
+            if name in list(self.method_params[self.what_method].keys()):
+                self.method_params[self.what_method][name] = (value, type(value))
+            elif name in list(self.field_defs.keys()):
+                self.field_defs[name] = (value, type(value))
+            else:
+                IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
         return
         
 #   # runs/interprets the passed-in statement until completion and
