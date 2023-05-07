@@ -183,9 +183,8 @@ class ObjectDefinition:
                 obj = self.method_params[self.what_method][object_reference][0]
             elif object_reference in list(self.field_defs.keys()):
                 obj = self.field_defs[object_reference][0]
-            elif type(object_reference) is list: obj = self.__eval_exp(object_reference)
-            else: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
-            if not obj: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
+            else: obj = self.__eval_exp([object_reference])
+            if not obj or type(obj) is not ObjectDefinition: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
             if method_name not in list(obj.method_defs.keys()): IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
             # bound the variables to their values now
             # if len(args) != len(obj.method_defs[method_name][0]):
@@ -357,6 +356,7 @@ class ObjectDefinition:
         # print('my',filled_in_exp[0][0], len(filled_in_exp))
         res = filled_in_exp[0][0]
         if len(filled_in_exp) == 1: 
+            # if (type(res) not in [int, str, bool]): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
             return res
         if expression[0] not in list(self.operators.keys()): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
         op, is_boolean_operator = self.operators[expression[0]]
@@ -378,7 +378,6 @@ class ObjectDefinition:
             #     IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
             # res = op(filled_in_exp[1][0], filled_in_exp[2][0])
         else:
-            print(filled_in_exp)
             stack = []
             for c in filled_in_exp[::-1]:
                 if c[1] in [int, str]:
@@ -388,6 +387,7 @@ class ObjectDefinition:
                     o1 = stack.pop()
                     o2 = stack.pop()
                     if type(o1) != type(o2): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
+                    if c[0] is not operator.add and type(o1) is str: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
                     res = c[0](o1,o2)
                     if type(o1) is int: res = int(res)
                     stack.append(res)
@@ -411,13 +411,9 @@ def main():
                     '(method factorial (n)',
                         '(return num)))']
     program_ex2 = ['(class main',
-                    '(field num 2)',
-                    '(field result 1)',
                     '(method main ()',
-                        '(call (new fact) foo num))',
+                        '(print (% "hello" "world"))',
                     ')',
-                    '(class fact',
-                    '(method foo (n) (print n))',
                     ')']
 
     program = Interpreter()
