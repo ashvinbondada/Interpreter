@@ -164,24 +164,26 @@ class ObjectDefinition:
         # if this is not me, u need a global class tracker and then refer to that objects run method
         params = []
         for arg in list(args):
-            if type(arg) is list:
-                if arg[0] in list(self.operators.keys()):
-                    params.append(self.__eval_exp(arg))
-                # handle call method
-            elif arg.replace("-","").isnumeric():
-                params.append(int(arg))
-            elif '"' in str(arg): 
-                params.append(str(arg).replace('"',""))
-            elif arg in list(self.method_params[self.what_method].keys()):
+            # if type(arg) is list:
+            #     if arg[0] in list(self.operators.keys()):
+            #         params.append(self.__eval_exp(arg))
+            #     # handle call method
+            # elif arg.replace("-","").isnumeric():
+            #     params.append(int(arg))
+            # elif '"' in str(arg): 
+                # params.append(str(arg).replace('"',""))
+            if arg in list(self.method_params[self.what_method].keys()):
                 params.append(self.method_params[self.what_method][arg][0])
             elif arg in list(self.field_defs.keys()):
                 params.append(self.field_defs[arg][0])
-        
+            else:
+                params.append(self.__eval_exp([arg]))
         if object_reference != 'me':
             if object_reference in list(self.method_params[self.what_method].keys()):
                 obj = self.method_params[self.what_method][object_reference][0]
             elif object_reference in list(self.field_defs.keys()):
                 obj = self.field_defs[object_reference][0]
+            elif type(object_reference) is list: obj = self.__eval_exp(object_reference)
             else: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
             if not obj: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
             if method_name not in list(obj.method_defs.keys()): IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
@@ -409,13 +411,13 @@ def main():
                     '(method factorial (n)',
                         '(return num)))']
     program_ex2 = ['(class main',
-                    '(field num 0)',
+                    '(field num 2)',
                     '(field result 1)',
                     '(method main ()',
-                        '(begin',
-                        '(print (- (+ 8 (/ 6 3)) 2))',
-                        ')',
+                        '(call (new fact) foo num))',
                     ')',
+                    '(class fact',
+                    '(method foo (n) (print n))',
                     ')']
 
     program = Interpreter()
