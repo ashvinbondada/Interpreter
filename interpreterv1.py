@@ -42,13 +42,6 @@ class Interpreter(IB):
         return
 
     obj = None
-    # def print_line_nums(self, parsed_program):
-    #     for item in parsed_program:
-    #         if type(item) is not list:
-    #             print(f'{item} was found on line {item.line_num}')
-    #         else:
-    #             self.print_line_nums(item)
-
 
 
 #
@@ -106,7 +99,6 @@ class ObjectDefinition:
             IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
 
     def add_method(self, method):
-        #name -> params, statement
         if method[1] in list(self.method_defs.keys()):
             IB.error(self.interpreter, 'ErrorType.NAME_ERROR') 
         self.method_defs[method[1]] = (method[2], method[3:]) 
@@ -122,23 +114,9 @@ class ObjectDefinition:
     def __execute_print_statement(self, statement):
         res = ""
         for word in statement:
-            if type(word) is not list:
-                word = self.__eval_exp([word])
-            else:
-                word = self.__eval_exp(word)
+            word = self.__eval_exp([word])
             if type(word) is bool: word = str(word).lower()
             res += str(word)
-            # if type(word) is not list:
-            #     if word in list(self.method_params[self.what_method].keys()):
-            #         word = str(self.method_params[self.what_method][word][0])
-            #     elif word in list(self.field_defs.keys()):
-            #         word = str(self.field_defs[word][0]) 
-            #     res += word.replace('"', "")
-            # if type(word) is list:
-            #     if word[0] == 'call':
-            #         res += str(self.execute_call_statement(word[1:]))
-            #     if word[0] in list(self.operators.keys()):
-            #         res += str(self.__eval_exp(word)).lower()
         IB.output(self=self.interpreter, val=res)
         return
     
@@ -256,16 +234,9 @@ class ObjectDefinition:
 
     def __execute_set_statement(self, statement):
         name,value = statement
-        if type(value) is list:
-            if value[0] in list(self.operators.keys()):
-                res = self.__eval_exp(value)
-            elif value[0] == IB.CALL_DEF:
-                res = self.execute_call_statement(value[1:]) 
-            elif value[0] == IB.NEW_DEF:
-                res = self.__execute_new_statement(value[1:])
-        else:
-            res = self.__eval_exp([value])
-            if type(res) is bool: res = str(res).lower()
+        res = self.__eval_exp([value])
+        if type(res) is bool: res = str(res).lower()
+
         if name in list(self.method_params[self.what_method].keys()):
             self.method_params[self.what_method][name] = (res, type(res))
         elif name in list(self.field_defs.keys()):
@@ -295,24 +266,10 @@ class ObjectDefinition:
         elif keyword == IB.SET_DEF:
             result = self.__execute_set_statement(statement)
         return result
-
-    # def __format_values(self,string):
-    #     res = ""
-    #     if string.replace(".", "").replace("-","").isnumeric(): 
-    #         res = int(string)
-    #     elif string == IB.TRUE_DEF or string == IB.FALSE_DEF:
-    #         return string
-    #     elif string in list(self.operators.keys()):
-    #         res = self.operators[string][0]
-    #     else:
-    #         res = str(string)
-    #     return res
     
     def __eval_exp(self,expression):
+        if type(expression[0]) is list: expression = expression[0]
         if type(expression[0]) is int: return expression[0]
-        # if len(expression) > 1:
-        #     if expression[0] not in list(self.operators.keys()): 
-        #         IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
         filled_in_exp = []
         for i,term in enumerate(expression):
             expr_val = term
@@ -354,11 +311,6 @@ class ObjectDefinition:
             #print(filled_in_exp)
             try: res = op(filled_in_exp[1][0], filled_in_exp[2][0])
             except: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
-            # if type(filled_in_exp[1][0]) != type(filled_in_exp[2][0]):
-            #     IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
-            # if op not in {operator.ne, operator.eq, operator.and_, operator.or_} and type(filled_in_exp[1][0]) is bool:
-            #     IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
-            # res = op(filled_in_exp[1][0], filled_in_exp[2][0])
         else:
             stack = []
             for c in filled_in_exp[::-1]:
@@ -390,19 +342,21 @@ def main():
                     '(method factorial (n)',
                         '(return num)))']
     program_ex2 = ['(class main',
-                    '(field x null)',
+                    '(field fib 0)',
                     '(method main ()',
                         '(begin',
-                        '(set x (call me bar))',
-                        '(print (+ 2 2))',
-                        '(call x foo)',
-                        ')',
-                   ')',
-                    '(method bar () (return (new big)))',
+                        '(print "inside main")',
+                       '(set fib (call me fibonacci 5))',
+                        '(print "fibonacci(2): " fib)',
                     ')',
-                    '(class big',
-                    '(method foo ()',
-                        '(print "hello")',
+                    ')',
+                    '(method fibonacci (n)',
+                    '(begin',
+                        '(if (< n 2)',
+                        '(return n)',
+                        '(return (+ (call me fibonacci (- n 1)) (call me fibonacci (- n 2))))',
+                        ')',
+                    ')',
                     ')',
                     ')']
 
