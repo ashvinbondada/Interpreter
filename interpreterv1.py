@@ -154,15 +154,19 @@ class ObjectDefinition:
             IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
     
     def execute_call_statement(self,statement):
-        object_reference, method_name, *args = statement
+        try: object_reference, method_name, *args = statement
+        except: 
+            object_reference, *args = statement
+            method_name = None
         # if this is not me, u need a global class tracker and then refer to that objects run method
         if object_reference != 'me':
             if object_reference in list(self.method_params[self.what_method].keys()):
                 obj = self.method_params[self.what_method][object_reference][0]
-            if object_reference in list(self.field_defs.keys()):
+            elif object_reference in list(self.field_defs.keys()):
                 obj = self.field_defs[object_reference][0]
-            else: raise Exception
-            if method_name not in list(obj.method_defs.keys()): raise Exception
+            else: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
+            if not obj: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
+            if method_name not in list(obj.method_defs.keys()): IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
             # bound the variables to their values now
             if len(args) != len(obj.method_defs[method_name][0]):
                 IB.error(self.interpreter,'ErrorType.TYPE_ERROR')
@@ -387,8 +391,11 @@ def main():
                     '(method factorial (n)',
                         '(return num)))']
     program_ex2 = ['(class main',
+                    '(field other null)',
                     '(method main ()',
-                    '(if 10 (print true) (print false))',
+                    '(begin'
+                     '(print other)'
+                    '(call other))',
                     ')',
                     ')']
 
