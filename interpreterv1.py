@@ -12,14 +12,17 @@ class Interpreter(IB):
     def run(self, program):
         # parse the program into a more easily processed form
         result, self.parsed_program = BParser.parse(program)
-        if result == False:
-            return # error
+        if result == False: return # error
+        self.classes = {}
         self.__discover_all_classes_and_track_them(self.parsed_program)
         self.find_definition_for_class(IB.MAIN_CLASS_DEF)        
         self.lazy_loaded[IB.MAIN_CLASS_DEF].call_method(IB.MAIN_FUNC_DEF, [])
 
     def __discover_all_classes_and_track_them(self, parsed_program):
-        self.classes = {parsed_program[i][1]:parsed_program[i][2:] for i in range(len(parsed_program))}
+        for i in range(len(parsed_program)):
+            if parsed_program[i][1] in list(self.classes.keys()):
+                IB.error(self, "ErrorType.NAME_ERROR")
+            self.classes[parsed_program[i][1]] = parsed_program[i][2:]
         # map of class name to entire definition in list form
         # can refer to this if a class does exist or not.
         return
