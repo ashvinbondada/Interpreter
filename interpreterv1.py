@@ -21,7 +21,7 @@ class Interpreter(IB):
     def __discover_all_classes_and_track_them(self, parsed_program):
         for i in range(len(parsed_program)):
             if parsed_program[i][1] in list(self.classes.keys()):
-                IB.error(self, "ErrorType.NAME_ERROR")
+                IB.error(self, "ErrorType.TYPE_ERROR")
             self.classes[parsed_program[i][1]] = parsed_program[i][2:]
         # map of class name to entire definition in list form
         # can refer to this if a class does exist or not.
@@ -123,22 +123,28 @@ class ObjectDefinition:
         res = ""
         for word in statement:
             if type(word) is not list:
-                if word in list(self.method_params[self.what_method].keys()):
-                    word = str(self.method_params[self.what_method][word][0])
-                elif word in list(self.field_defs.keys()):
-                    word = str(self.field_defs[word][0]) 
-                res += word.replace('"', "")
-            if type(word) is list:
-                if word[0] == 'call':
-                    res += str(self.execute_call_statement(word[1:]))
-                if word[0] in list(self.operators.keys()):
-                    res += str(self.__eval_exp(word)).lower()
+                word = self.__eval_exp([word])
+            else:
+                word = self.__eval_exp(word)
+            if type(word) is bool: word = str(word).lower()
+            res += str(word)
+            # if type(word) is not list:
+            #     if word in list(self.method_params[self.what_method].keys()):
+            #         word = str(self.method_params[self.what_method][word][0])
+            #     elif word in list(self.field_defs.keys()):
+            #         word = str(self.field_defs[word][0]) 
+            #     res += word.replace('"', "")
+            # if type(word) is list:
+            #     if word[0] == 'call':
+            #         res += str(self.execute_call_statement(word[1:]))
+            #     if word[0] in list(self.operators.keys()):
+            #         res += str(self.__eval_exp(word)).lower()
         IB.output(self=self.interpreter, val=res)
         return
     
     def __execute_input_statement(self, statement):
-        res = '"' + IB.get_input(self.interpreter) + '"'
-        res = self.__eval_exp([res])    
+        res = '"'+IB.get_input(self.interpreter)+'"'
+        res = self.__eval_exp([res])        
         #self.method_params[self.what_method] = {statement[0] : (res, type(res))}
         if statement[0] in list(self.method_params[self.what_method].keys()):
             self.method_params[self.what_method][statement[0]] = (res, type(res))
@@ -293,22 +299,23 @@ class ObjectDefinition:
             result = self.__execute_set_statement(statement)
         return result
 
-    def __format_values(self,string):
-        res = ""
-        if string.replace(".", "").replace("-","").isnumeric(): 
-            res = int(string)
-        elif string == IB.TRUE_DEF or string == IB.FALSE_DEF:
-            return string
-        elif string in list(self.operators.keys()):
-            res = self.operators[string][0]
-        else:
-            res = str(string)
-        return res
+    # def __format_values(self,string):
+    #     res = ""
+    #     if string.replace(".", "").replace("-","").isnumeric(): 
+    #         res = int(string)
+    #     elif string == IB.TRUE_DEF or string == IB.FALSE_DEF:
+    #         return string
+    #     elif string in list(self.operators.keys()):
+    #         res = self.operators[string][0]
+    #     else:
+    #         res = str(string)
+    #     return res
     
     def __eval_exp(self,expression):
         if type(expression[0]) is int: return expression[0]
-        if len(expression) > 1 and expression[0] not in list(self.operators.keys()): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
-
+        # if len(expression) > 1:
+        #     if expression[0] not in list(self.operators.keys()): 
+        #         IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
         filled_in_exp = []
         for i,term in enumerate(expression):
             expr_val = term
@@ -317,10 +324,12 @@ class ObjectDefinition:
                     res = self.__eval_exp(term)                                  # expression
                     expr_val = (res, type(res))
                 if term[0] == IB.CALL_DEF:    
-                    res = self.__eval_exp([self.execute_call_statement(term[1:])])                           # method call
-                    expr_val = (res, type(res))   
-            elif str(term).replace('.',"").replace("-","").isnumeric():                          # number
-                expr_val = (int(term), type(int(term)))
+                    res = self.__eval_exp(term)                           # method call
+                    expr_val = (res, type(res))
+            elif term == IB.CALL_DEF:
+                return self.execute_call_statement(expression[1:])
+            elif term.replace('"',"").replace("-","").isnumeric():                          # number
+                expr_val = (int(term.replace('"',"")), type(int(term.replace('"',""))))
             elif '"' in term:                                                               # string
                 expr_val = (str(term).replace('"',""), type(str(term)))                                  
             elif self.what_method != '' and term in list(self.method_params[self.what_method].keys()):                 # method parameter
@@ -330,7 +339,7 @@ class ObjectDefinition:
             elif term in list(self.operators.keys()):                                       # operator                 
                 expr_val = self.operators[term]
             elif expr_val is term:                                                          # out of scope
-                raise Exception
+                IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
             filled_in_exp.append(expr_val)
         # print('my',filled_in_exp[0][0], len(filled_in_exp))
         res = filled_in_exp[0][0]
@@ -346,11 +355,14 @@ class ObjectDefinition:
                 if type(filled_in_exp[0][0]) is not bool: IB.error(self.interpreter, 'TypeError.TYPE_ERROR')
                 return filled_in_exp[0][0]
             if len(filled_in_exp[1:]) != 2: raise Exception
-            if type(filled_in_exp[1][0]) != type(filled_in_exp[2][0]):
-                IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
-            if op not in {operator.ne, operator.eq, operator.and_, operator.or_} and type(filled_in_exp[1][0]) is bool:
-                IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
-            res = op(filled_in_exp[1][0], filled_in_exp[2][0])
+            #print(filled_in_exp)
+            try: res = op(filled_in_exp[1][0], filled_in_exp[2][0])
+            except: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
+            # if type(filled_in_exp[1][0]) != type(filled_in_exp[2][0]):
+            #     IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
+            # if op not in {operator.ne, operator.eq, operator.and_, operator.or_} and type(filled_in_exp[1][0]) is bool:
+            #     IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
+            # res = op(filled_in_exp[1][0], filled_in_exp[2][0])
         else:
             stack = []
             for c in filled_in_exp[::-1]:
@@ -363,40 +375,48 @@ class ObjectDefinition:
                     o2 = stack.pop()
                     if type(o1) != type(o2): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
                     stack.append(c[0](o1,o2))
-            res = int(stack.pop())
+            res = stack.pop()
+            
         return res
     
 
-# def main():
+def main():
 
 
-#     program_ex = ['(class main',
-#                     '(field num 0)',
-#                     '(field result 1)',
-#                     '(method main ()',
-#                         '(begin',
-#                             '(print "Enter a number: ")',
-#                             '(inputs num)',
-#                             '(print num " factorial is " (call me factorial num))))',
-#                             '',
-#                     '(method factorial (n)',
-#                         '(return num)))']
-#     program_ex2 = ['(class main',
-#                     '(field some_int 3)',
-#                     '(method main ()',
-#                         '(begin', 
-#                             '(print (> some_int (+ (* 3 5) 6)))',
-#                             '(call careynachenberg matt some_int)',
-#                             '(call me testable)))',
-#                         '(method testable ()',
-#                         '(print (> \"hello\" \"dog\"))))',
-#                     '(class careynachenberg',
-#                         '(method matt (wang)',
-#                             '(print (+ 2 3)))',
-#                     '(method example () (print \"what\'s up\")))'
-#                     ]
+    program_ex = ['(class main',
+                    '(field num 0)',
+                    '(field result 1)',
+                    '(method main ()',
+                        '(begin',
+                            '(print "Enter a number: ")',
+                            '(inputs num)',
+                            '(print num " factorial is " (call me factorial num))))',
+                            '',
+                    '(method factorial (n)',
+                        '(return num)))']
+    program_ex2 = ['(class main',
+                    '(field other null)',
+                    '(field result 0)',
+                    '(method main ()',
+                    '(begin',
+                        '(call me foo 10 20)',   # call foo method in same object
+                        '(set other (new other_class))',
+                        '(call other foo 5 6)',  # call foo method in other object
+                        '(print "square: " (call other square 10))', # call expression
+                    ')',
+                    ')',
+                    '(method foo (a b)',
+                    '(print a b)',
+                    ')',
+                ')',
 
-#     program = Interpreter()
-#     program.run(program_ex2)
+                '(class other_class',
+                        '(method foo (q r) (print q r))',
+                        '(method square (q) (return (* q q)))',
+                    ')']
 
-# main()
+    program = Interpreter()
+    program.run(program_ex2)
+
+if __name__ == '__main__':
+    main()
