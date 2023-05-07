@@ -226,6 +226,7 @@ class ObjectDefinition:
         if not statement: 
             return
         if type(statement[0]) is list:
+            return self.__eval_exp(statement[0])
             if statement[0][0] in list(self.operators.keys()):
                 return self.__eval_exp(statement[0])
             if statement[0][0] == IB.CALL_DEF:
@@ -248,7 +249,7 @@ class ObjectDefinition:
             if expression[0] in list(self.interpreter.classes.keys()):
                 self.interpreter.find_definition_for_class(expression[0])
             else:
-                raise Exception # wrong class name
+                IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
         return self.interpreter.lazy_loaded[expression[0]]
             
         # if exoression
@@ -315,13 +316,11 @@ class ObjectDefinition:
         filled_in_exp = []
         for i,term in enumerate(expression):
             expr_val = term
-            if type(term) is list:  
-                if term[0] in list(self.operators.keys()):
-                    res = self.__eval_exp(term)                                  # expression
-                    expr_val = (res, type(res))
-                if term[0] == IB.CALL_DEF:    
-                    res = self.__eval_exp(term)                           # method call
-                    expr_val = (res, type(res))
+            if type(term) is list:     
+                res = self.__eval_exp(term)                           # method call
+                expr_val = (res, type(res))
+            elif term == IB.NEW_DEF:
+                return self.__execute_new_statement(expression[1:])
             elif term == IB.CALL_DEF:
                 return self.execute_call_statement(expression[1:])
             elif term.replace('"',"").replace("-","").isnumeric():                          # number
@@ -391,11 +390,19 @@ def main():
                     '(method factorial (n)',
                         '(return num)))']
     program_ex2 = ['(class main',
-                    '(field other null)',
+                    '(field x null)',
                     '(method main ()',
-                    '(begin'
-                     '(print other)'
-                    '(call other))',
+                        '(begin',
+                        '(set x (call me bar))',
+                        '(print (+ 2 2))',
+                        '(call x foo)',
+                        ')',
+                   ')',
+                    '(method bar () (return (new big)))',
+                    ')',
+                    '(class big',
+                    '(method foo ()',
+                        '(print "hello")',
                     ')',
                     ')']
 
