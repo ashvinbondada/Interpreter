@@ -71,7 +71,7 @@ class ClassDefinition:
 #
 class ObjectDefinition: 
 
-    stack = []
+    #stack = []
     def __init__(self, interpreter):
         self.interpreter = interpreter
         self.method_defs = {}
@@ -162,29 +162,6 @@ class ObjectDefinition:
             object_reference, *args = statement
             method_name = None
         # if this is not me, u need a global class tracker and then refer to that objects run method
-        if object_reference != 'me':
-            if object_reference in list(self.method_params[self.what_method].keys()):
-                obj = self.method_params[self.what_method][object_reference][0]
-            elif object_reference in list(self.field_defs.keys()):
-                obj = self.field_defs[object_reference][0]
-            else: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
-            if not obj: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
-            if method_name not in list(obj.method_defs.keys()): IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
-            # bound the variables to their values now
-            if len(args) != len(obj.method_defs[method_name][0]):
-                IB.error(self.interpreter,'ErrorType.TYPE_ERROR')
-            else:
-                print(statement)
-                params = []
-                for i in range(2, len(statement)):
-                    term = statement[i]
-                    if term in list(self.method_params[self.what_method].keys()):
-                        term = self.self.method_params[self.what_method][term][0]
-                    elif term in list(self.field_defs.keys()):
-                        term = self.self.field_defs[term][0]
-                    params.append(self.__eval_exp([term]))
-            return obj.call_method(method_name, params)
-        
         params = []
         for arg in list(args):
             if type(arg) is list:
@@ -199,10 +176,36 @@ class ObjectDefinition:
                 params.append(self.method_params[self.what_method][arg][0])
             elif arg in list(self.field_defs.keys()):
                 params.append(self.field_defs[arg][0])
+        
+        if object_reference != 'me':
+            if object_reference in list(self.method_params[self.what_method].keys()):
+                obj = self.method_params[self.what_method][object_reference][0]
+            elif object_reference in list(self.field_defs.keys()):
+                obj = self.field_defs[object_reference][0]
+            else: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
+            if not obj: IB.error(self.interpreter, 'ErrorType.FAULT_ERROR')
+            if method_name not in list(obj.method_defs.keys()): IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
+            # bound the variables to their values now
+            # if len(args) != len(obj.method_defs[method_name][0]):
+            #     IB.error(self.interpreter,'ErrorType.TYPE_ERROR')
+            # else:
+            #     print(statement)
+            #     params = []
+            #     for i in range(2, len(statement)):
+            #         term = statement[i]
+            #         if term in list(self.method_params[self.what_method].keys()):
+            #             term = self.self.method_params[self.what_method][term][0]
+            #         elif term in list(self.field_defs.keys()):
+            #             term = self.self.field_defs[term][0]
+            #         params.append(self.__eval_exp([term]))
+            return obj.call_method(method_name, params)
+        
         #if method_name == self.what_method: 
-        ObjectDefinition.stack.append(self.method_params[self.what_method].copy())
+        #ObjectDefinition.stack.append(self.method_params[self.what_method].copy())
+        temp = self.method_params[self.what_method].copy() 
         res = self.call_method(method_name, params)
-        self.method_params[self.what_method] = ObjectDefinition.stack.pop()
+        self.method_params[self.what_method] = temp
+        #self.method_params[self.what_method] = ObjectDefinition.stack.pop()
         #else:
             #res = self.call_method(method_name, params)
         self.end = False 
@@ -383,7 +386,9 @@ class ObjectDefinition:
                     o1 = stack.pop()
                     o2 = stack.pop()
                     if type(o1) != type(o2): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
-                    stack.append(c[0](o1,o2))
+                    res = c[0](o1,o2)
+                    if type(o1) is int: res = int(res)
+                    stack.append(res)
             res = stack.pop()
             
         return res
@@ -404,23 +409,13 @@ def main():
                     '(method factorial (n)',
                         '(return num)))']
     program_ex2 = ['(class main',
-                    '(field other null)',
-                    '(field result 0)',
+                    '(field num 0)',
+                    '(field result 1)',
                     '(method main ()',
-                    '(begin',
-                        '(call me foo 10 20)',   # call foo method in same object
-                        '(set other (new other_class))',
-                        '(call other foo 5 6)',  # call foo method in other object
-                        '(print "square: " (call other square 10))', # call expression
+                        '(begin',
+                        '(print (- (+ 8 (/ 6 3)) 2))',
+                        ')',
                     ')',
-                    ')',
-                    '(method foo (a b)',
-                    '(print a b)',
-                    ')',
-                ')',
-                '(class other_class',
-                        '(method foo (q r) (print q r))',
-                        '(method square (q) (return (* q q)))',
                     ')']
 
     program = Interpreter()
