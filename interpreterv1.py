@@ -173,7 +173,7 @@ class ObjectDefinition:
                         statement[i] = self.method_params[self.what_method][term][0]
                     elif term in list(self.field_defs.keys()):
                         statement[i] = self.field_defs[term][0] 
-            statement[0] = 'me'
+            statement[0] = IB.ME_DEF
             obj.what_method = method_name
             return obj.execute_call_statement(statement)
         
@@ -191,13 +191,16 @@ class ObjectDefinition:
                 params.append(self.method_params[self.what_method][arg][0])
             elif arg in list(self.field_defs.keys()):
                 params.append(self.field_defs[arg][0])
-        return self.call_method(method_name, params)
+        res = self.call_method(method_name, params)
+        self.end = False 
+        return res
     
     def __execute_while_statement(self,statement):
-        self.cond = True
-        while self.cond:
-            res = self.__execute_if_statement(statement)
-            if self.end: return
+        condition, body =  statement
+        if type(self.__eval_exp(condition)) is not bool: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
+        while self.__eval_exp(condition):
+            res = self.__run_statement(body)
+            if self.end: break
         return res
     
     def __execute_if_statement(self,statement):
@@ -205,28 +208,18 @@ class ObjectDefinition:
         except: 
             condition, if_clause = statement
             else_clause = None
-        condition = self.__eval_exp(condition)
-        if type(condition) is not bool: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
-        save_method_control_flo = self.what_method
-        if condition: body = if_clause
-        elif not else_clause: 
-            self.cond = False
-            return
-        else: body = else_clause
+        cond = self.__eval_exp(condition)
+        if type(cond) is not bool: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
         
-        res = None
-        self.method_defs[IB.IF_DEF] = ([], [body])
-        if IB.IF_DEF not in list(self.method_params.keys()):
-            self.method_params[IB.IF_DEF] = self.method_params[self.what_method] 
-        res = self.call_method( IB.IF_DEF, [])
-        if self.end: return
-        self.method_params[self.what_method] = self.method_params[IB.IF_DEF]
-        self.what_method = save_method_control_flo
-        return res
+        if cond: body = if_clause
+        elif not else_clause: return
+        else: body = else_clause
+        res = self.__run_statement(body)
+        return res 
     
     def __execute_return_statement(self,statement):
+        self.end = True
         if not statement: 
-            self.end = True
             return
         if type(statement[0]) is list:
             if statement[0][0] in list(self.operators.keys()):
@@ -243,8 +236,7 @@ class ObjectDefinition:
         res = None
         for line in statement:
             res = self.__run_statement(line)
-            if self.end:
-                return
+            if self.end: break
         return res
     
     def __execute_new_statement(self,expression):
@@ -339,12 +331,13 @@ class ObjectDefinition:
             elif term in list(self.operators.keys()):                                       # operator                 
                 expr_val = self.operators[term]
             elif expr_val is term:                                                          # out of scope
-                IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
+                IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
             filled_in_exp.append(expr_val)
         # print('my',filled_in_exp[0][0], len(filled_in_exp))
         res = filled_in_exp[0][0]
         if len(filled_in_exp) == 1: 
             return res
+        if expression[0] not in list(self.operators.keys()): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
         op, is_boolean_operator = self.operators[expression[0]]
         if op is operator.not_:
             if len(filled_in_exp[1:]) != 1: raise Exception
@@ -366,10 +359,9 @@ class ObjectDefinition:
         else:
             stack = []
             for c in filled_in_exp[::-1]:
-                if type(c) is int or type(c) is str:
-                    stack.append(c)
-                elif not callable(c[0]):
+                if c[1] in [int, str]:
                     stack.append(c[0])
+                elif c[1]: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
                 else:
                     o1 = stack.pop()
                     o2 = stack.pop()
@@ -395,24 +387,9 @@ def main():
                     '(method factorial (n)',
                         '(return num)))']
     program_ex2 = ['(class main',
-                    '(field other null)',
-                    '(field result 0)',
                     '(method main ()',
-                    '(begin',
-                        '(call me foo 10 20)',   # call foo method in same object
-                        '(set other (new other_class))',
-                        '(call other foo 5 6)',  # call foo method in other object
-                        '(print "square: " (call other square 10))', # call expression
+                    '(if 10 (print true) (print false))',
                     ')',
-                    ')',
-                    '(method foo (a b)',
-                    '(print a b)',
-                    ')',
-                ')',
-
-                '(class other_class',
-                        '(method foo (q r) (print q r))',
-                        '(method square (q) (return (* q q)))',
                     ')']
 
     program = Interpreter()
