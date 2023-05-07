@@ -252,6 +252,7 @@ class ObjectDefinition:
         # if exoression
 
     def __execute_set_statement(self, statement):
+        print('HI',res)
         name,value = statement
         if type(value) is list:
             if value[0] in list(self.operators.keys()):
