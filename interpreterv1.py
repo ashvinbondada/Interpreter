@@ -4,19 +4,19 @@ import operator
 
 
 class Interpreter(IB):
-    def __init__(self, console_output=True, inp=None, trace_output=False):
-        super().__init__(console_output, inp)   
+    lazy_loaded = {}
 
-    
+    def __init__(self, console_output=True, inp=None, trace_output=False):
+        super().__init__(console_output, inp)  
+        
     def run(self, program):
         # parse the program into a more easily processed form
         result, self.parsed_program = BParser.parse(program)
         if result == False:
             return # error
         self.__discover_all_classes_and_track_them(self.parsed_program)
-        class_def = self.__find_definition_for_class(IB.MAIN_CLASS_DEF)
-        obj = class_def.instantiate_object()
-        res = obj.call_method(IB.MAIN_FUNC_DEF, [])
+        self.find_definition_for_class(IB.MAIN_CLASS_DEF)        
+        self.lazy_loaded[IB.MAIN_CLASS_DEF].call_method(IB.MAIN_FUNC_DEF, [])
 
     def __discover_all_classes_and_track_them(self, parsed_program):
         self.classes = {parsed_program[i][1]:parsed_program[i][2:] for i in range(len(parsed_program))}
@@ -24,9 +24,8 @@ class Interpreter(IB):
         # can refer to this if a class does exist or not.
         return
 
-    def __find_definition_for_class(self,class_name):
+    def find_definition_for_class(self,class_name):
         def_list = self.classes[class_name]
-
         fields = []
         methods = []
         for field_or_method in def_list:
@@ -34,8 +33,12 @@ class Interpreter(IB):
             if field_or_method[0] == IB.FIELD_DEF: fields.append(field_or_method)
             else: methods.append(field_or_method)
         if not methods: raise Exception # Each class must have one method
-        return ClassDefinition(fields=fields, methods=methods, interpreter = self)
+        class_def = ClassDefinition(fields=fields, methods=methods, interpreter = self)
+        obj = class_def.instantiate_object() 
+        Interpreter.lazy_loaded[class_name] = obj
+        return
 
+    obj = None
     # def print_line_nums(self, parsed_program):
     #     for item in parsed_program:
     #         if type(item) is not list:
@@ -107,10 +110,10 @@ class ObjectDefinition:
         return
     
     def add_field(self, name, initial_value):
-        res = self.__format_values(initial_value)
+        res = self.__eval_exp([initial_value])
         if name in list(self.field_defs.keys()):
             IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
-        self.field_defs[name] = (res, type(res))
+        self.field_defs[name] = (res , type(res))
         return
     
     def __execute_print_statement(self, statement):
@@ -124,17 +127,15 @@ class ObjectDefinition:
                 res += word.replace('"', "")
             if type(word) is list:
                 if word[0] == 'call':
-                    res += str(self.__execute_call_statement(word[1:]))
+                    res += str(self.execute_call_statement(word[1:]))
                 if word[0] in list(self.operators.keys()):
                     res += str(self.__eval_exp(word)).lower()
-
-
         IB.output(self=self.interpreter, val=res)
         return
     
     def __execute_input_statement(self, statement):
-        res = IB.get_input(self.interpreter) 
-        res = self.__format_values(res)    
+        res = '"' + IB.get_input(self.interpreter) + '"'
+        res = self.__eval_exp([res])    
         #self.method_params[self.what_method] = {statement[0] : (res, type(res))}
         if statement[0] in list(self.method_params[self.what_method].keys()):
             self.method_params[self.what_method][statement[0]] = (res, type(res))
@@ -143,24 +144,44 @@ class ObjectDefinition:
         else:
             IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
     
-    def __execute_call_statement(self,statement):
+    def execute_call_statement(self,statement):
         object_reference, method_name, *args = statement
         # if this is not me, u need a global class tracker and then refer to that objects run method
         if object_reference != 'me':
-            print(statement)
-            raise Exception
-        else:
-            params = []
-            for arg in list(args):
-                if type(arg) is list:
-                    if arg[0] in list(self.operators.keys()):
-                        params.append(self.__eval_exp(arg))
-                elif arg in list(self.method_params[self.what_method].keys()):
-                    params.append(self.method_params[self.what_method][arg][0])
-                elif arg in list(self.field_defs.keys()):
-                    params.append(self.field_defs[arg][0])
-                elif arg.replace("-","").isnumeric():
-                    params.append(int(arg))
+            if object_reference in list(self.method_params[self.what_method].keys()):
+                obj = self.method_params[self.what_method][object_reference][0]
+            if object_reference in list(self.field_defs.keys()):
+                obj = self.field_defs[object_reference][0]
+            else: raise Exception
+            if method_name not in list(obj.method_defs.keys()): raise Exception
+            # bound the variables to their values now
+            if len(args) != len(obj.method_defs[method_name][0]):
+                IB.error(self.interpreter,'ErrorType.TYPE_ERROR')
+            else:
+                for i in range(2, len(statement[2:])):
+                    term = statement[i]
+                    if term in list(self.method_params[self.what_method].keys()):
+                        statement[i] = self.method_params[self.what_method][term][0]
+                    elif term in list(self.field_defs.keys()):
+                        statement[i] = self.field_defs[term][0] 
+            statement[0] = 'me'
+            obj.what_method = method_name
+            return obj.execute_call_statement(statement)
+        
+        params = []
+        for arg in list(args):
+            if type(arg) is list:
+                if arg[0] in list(self.operators.keys()):
+                    params.append(self.__eval_exp(arg))
+                # handle call method
+            elif arg.replace("-","").isnumeric():
+                params.append(int(arg))
+            elif '"' in str(arg): 
+                params.append(str(arg).replace('"',""))
+            elif arg in list(self.method_params[self.what_method].keys()):
+                params.append(self.method_params[self.what_method][arg][0])
+            elif arg in list(self.field_defs.keys()):
+                params.append(self.field_defs[arg][0])
         return self.call_method(method_name, params)
     
     def __execute_while_statement(self,statement):
@@ -171,9 +192,8 @@ class ObjectDefinition:
         return res
     
     def __execute_if_statement(self,statement):
-        try:
-            condition, if_clause, else_clause = statement
-        except:
+        try: condition, if_clause, else_clause = statement
+        except: 
             condition, if_clause = statement
             else_clause = None
         condition = self.__eval_exp(condition)
@@ -192,8 +212,6 @@ class ObjectDefinition:
         res = self.call_method( IB.IF_DEF, [])
         if self.end: return
         self.method_params[self.what_method] = self.method_params[IB.IF_DEF]
-        #del self.method_defs[IB.IF_DEF]
-        #del self.method_params[IB.IF_DEF]
         self.what_method = save_method_control_flo
         return res
     
@@ -205,12 +223,12 @@ class ObjectDefinition:
             if statement[0][0] in list(self.operators.keys()):
                 return self.__eval_exp(statement[0])
             if statement[0][0] == IB.CALL_DEF:
-                return self.__execute_call_statement(statement[0][1:])
+                return self.execute_call_statement(statement[0][1:])
         if statement[0] in list(self.method_params[self.what_method].keys()):
             return self.method_params[self.what_method][statement[0]][0]
         if statement[0] in list(self.field_defs.keys()): 
             return self.field_defs[statement[0]][0]
-        return self.__format_values(statement[0])
+        return self.__eval_exp([statement[0]])
     
     def __execute_all_sub_statements_of_begin_statement(self,statement):
         res = None
@@ -220,22 +238,33 @@ class ObjectDefinition:
                 return
         return res
     
+    def __execute_new_statement(self,expression):
+        if expression[0] not in list(self.interpreter.lazy_loaded.keys()):
+            if expression[0] in list(self.interpreter.classes.keys()):
+                self.interpreter.find_definition_for_class(expression[0])
+            else:
+                raise Exception # wrong class name
+        return self.interpreter.lazy_loaded[expression[0]]
+            
+        # if exoression
+
     def __execute_set_statement(self, statement):
         name,value = statement
         if type(value) is list:
             if value[0] in list(self.operators.keys()):
                 res = self.__eval_exp(value)
-                self.method_params[self.what_method][name] = (res, type(res)) 
             elif value[0] == IB.CALL_DEF:
-                self.__execute_call_statement(value[1:]) 
+                res = self.execute_call_statement(value[1:]) 
+            elif value[0] == IB.NEW_DEF:
+                res = self.__execute_new_statement(value[1:])
         else:
-            value = self.__format_values(value)
-            if name in list(self.method_params[self.what_method].keys()):
-                self.method_params[self.what_method][name] = (value, type(value))
-            elif name in list(self.field_defs.keys()):
-                self.field_defs[name] = (value, type(value))
-            else:
-                IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
+            res = self.__eval_exp([value])
+            if type(res) is bool: res = str(res).lower()
+        if name in list(self.method_params[self.what_method].keys()):
+            self.method_params[self.what_method][name] = (res, type(res))
+        elif name in list(self.field_defs.keys()):
+            self.field_defs[name] = (res, type(res)) 
+        else: IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
         return
         
 #   # runs/interprets the passed-in statement until completion and
@@ -248,7 +277,7 @@ class ObjectDefinition:
         elif keyword == IB.INPUT_INT_DEF or keyword == IB.INPUT_STRING_DEF:
             result = self.__execute_input_statement(statement)
         elif keyword == IB.CALL_DEF:
-            result = self.__execute_call_statement(statement)
+            result = self.execute_call_statement(statement)
         elif keyword == IB.WHILE_DEF:
             result = self.__execute_while_statement(statement)
         elif keyword == IB.IF_DEF:
@@ -275,8 +304,8 @@ class ObjectDefinition:
     
     def __eval_exp(self,expression):
         if type(expression[0]) is int: return expression[0]
-        if expression[0] not in list(self.operators.keys()): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
-        op, is_boolean_operator = self.operators[expression[0]]
+        if len(expression) > 1 and expression[0] not in list(self.operators.keys()): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
+
         filled_in_exp = []
         for i,term in enumerate(expression):
             expr_val = term
@@ -285,22 +314,26 @@ class ObjectDefinition:
                     res = self.__eval_exp(term)                                  # expression
                     expr_val = (res, type(res))
                 if term[0] == IB.CALL_DEF:    
-                    res = self.__eval_exp([self.__execute_call_statement(term[1:])])                           # method call
-                    expr_val = (res, type(res))                                    
-            elif term in list(self.method_params[self.what_method].keys()):                 # method parameter
-                expr_val = self.method_params[self.what_method][term]
-            elif term in list(self.field_defs.keys()):                                      # field variable
-                expr_val = self.field_defs[term]
+                    res = self.__eval_exp([self.execute_call_statement(term[1:])])                           # method call
+                    expr_val = (res, type(res))   
             elif str(term).replace('.',"").replace("-","").isnumeric():                          # number
                 expr_val = (int(term), type(int(term)))
             elif '"' in term:                                                               # string
-                expr_val = (str(term), type(str(term))) 
+                expr_val = (str(term).replace('"',""), type(str(term)))                                  
+            elif self.what_method != '' and term in list(self.method_params[self.what_method].keys()):                 # method parameter
+                expr_val = self.method_params[self.what_method][term]
+            elif term in list(self.field_defs.keys()):                                   # field variable
+                expr_val = self.field_defs[term]
             elif term in list(self.operators.keys()):                                       # operator                 
                 expr_val = self.operators[term]
-            elif expr_val == term:                                                          # out of scope
+            elif expr_val is term:                                                          # out of scope
                 raise Exception
             filled_in_exp.append(expr_val)
-
+        # print('my',filled_in_exp[0][0], len(filled_in_exp))
+        res = filled_in_exp[0][0]
+        if len(filled_in_exp) == 1: 
+            return res
+        op, is_boolean_operator = self.operators[expression[0]]
         if op is operator.not_:
             if len(filled_in_exp[1:]) != 1: raise Exception
             if type(filled_in_exp[1][0]) is not bool: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
@@ -318,7 +351,7 @@ class ObjectDefinition:
         else:
             stack = []
             for c in filled_in_exp[::-1]:
-                if type(c) is int:
+                if type(c) is int or type(c) is str:
                     stack.append(c)
                 elif not callable(c[0]):
                     stack.append(c[0])
@@ -346,20 +379,19 @@ class ObjectDefinition:
 #                     '(method factorial (n)',
 #                         '(return num)))']
 #     program_ex2 = ['(class main',
-#                     '(field num "ash")',
-#                     '(field result 1)',
+#                     '(field some_int 3)',
 #                     '(method main ()',
-#                         '(begin',
-#                             '(print "Enter a number: ")',
-#                             '(inputi num)',
-#                             '(print num " factorial is " (call me factorial num))))',
-#                             '',
-#                     '(method factorial (n)',
-#                     '(begin'
-#                         '(set result 1)',
-#                         '(print num)',
-#                         '(if (!= "ash" num)',
-#                             '(return result)))))']
+#                         '(begin', 
+#                             '(print (> some_int (+ (* 3 5) 6)))',
+#                             '(call careynachenberg matt some_int)',
+#                             '(call me testable)))',
+#                         '(method testable ()',
+#                         '(print (> \"hello\" \"dog\"))))',
+#                     '(class careynachenberg',
+#                         '(method matt (wang)',
+#                             '(print (+ 2 3)))',
+#                     '(method example () (print \"what\'s up\")))'
+#                     ]
 
 #     program = Interpreter()
 #     program.run(program_ex2)
