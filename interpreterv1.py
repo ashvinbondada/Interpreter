@@ -73,8 +73,8 @@ class ObjectDefinition:
                             '/' : (operator.truediv, False),'%' : (operator.mod, False), '>' : (operator.gt, True),
                             '<' : (operator.lt, True),'>=' : (operator.ge, True), '<=' : (operator.le, True),
                             '==' :(operator.eq, True), '!' : (operator.not_, int), '!=' : (operator.ne, True),
-                            '&' : (operator.and_, True) ,'|' : (operator.or_, True), 'true' : (True, bool), 'false' : (False, bool),
-                            'null' : (None, type(None))}
+                            '&' : (operator.and_, True) ,'|' : (operator.or_, True), 'true' : (True, bool), 
+                            'false' : (False, bool), 'null' : (None, type(None))}        # True/False - boolean operator, int - unary operator, bool - True/False
 
     # Interpret the specified method using the provided parameters
     def call_method(self, method_name, parameters):
@@ -91,22 +91,17 @@ class ObjectDefinition:
         return result
     
     def __find_method(self,method_name):
-        if method_name in list(self.method_defs.keys()):
-            return self.method_defs[method_name] #1 represents the method itself
-        else:
-            IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
+        try: return self.method_defs[method_name]
+        except: IB.error(self.interpreter, 'ErrorType.NAME_ERROR') 
 
     def add_method(self, method):
-        #name -> params, statement
-        if method[1] in list(self.method_defs.keys()):
-            IB.error(self.interpreter, 'ErrorType.NAME_ERROR') 
-        self.method_defs[method[1]] = (method[2], method[3:]) 
+        if method[1] in list(self.method_defs.keys()): IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
+        self.method_defs[method[1]] = (method[2], method[3:])    #name -> params, statement
         return
     
     def add_field(self, name, initial_value):
+        if name in list(self.field_defs.keys()): IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
         res = self.__eval_exp([initial_value])
-        if name in list(self.field_defs.keys()):
-            IB.error(self.interpreter, 'ErrorType.NAME_ERROR')
         self.field_defs[name] = (res , type(res))
         return
     
@@ -120,12 +115,13 @@ class ObjectDefinition:
         return
     
     def __execute_input_statement(self, statement):
-        res = '"'+IB.get_input(self.interpreter)+'"'
+        res = '"' + IB.get_input(self.interpreter) + '"'
         res = self.__eval_exp([res])        
-        try: self.method_params[self.what_method][statement[0]] = (res, type(res))
-        except: pass
-        try: self.field_defs[statement[0]] = (res, type(res))
-        except: IB.error(self.interpreter, 'ErrorType.NAME_ERROR') 
+        if statement[0] in list(self.method_params[self.what_method].keys()):
+            self.method_params[self.what_method][statement[0]] = (res, type(res))
+        elif statement[0] in list(self.field_defs.keys()): 
+            self.field_defs[statement[0]] = (res, type(res))
+        else: IB.error(self.interpreter, 'ErrorType.NAME_ERROR') 
     
     def execute_call_statement(self,statement):
         try: object_reference, method_name, *args = statement
@@ -256,17 +252,17 @@ class ObjectDefinition:
                 expr_val = self.operators[term]
             elif expr_val is term: IB.error(self.interpreter, 'ErrorType.NAME_ERROR')   # out of scope
             filled_in_exp.append(expr_val)
-        
+
         res = filled_in_exp[0][0]
         if len(filled_in_exp) == 1: return res
         if expression[0] not in list(self.operators.keys()): IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
         op, is_boolean_operator = self.operators[expression[0]]
-        if is_boolean_operator is int:
+        if is_boolean_operator is int:                          # int is code for unary operator !
             if len(filled_in_exp[1:]) != 1: raise Exception
             if filled_in_exp[1][1] is not bool: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR')
             res = op(filled_in_exp[1][0])
         elif is_boolean_operator:
-            if (len(filled_in_exp)) == 1:
+            if (len(filled_in_exp)) == 1:           # expr is (True/False)
                 if filled_in_exp[0][1] is not bool: IB.error(self.interpreter, 'TypeError.TYPE_ERROR')
                 return filled_in_exp[0][0]
             if len(filled_in_exp[1:]) != 2: raise Exception
@@ -283,7 +279,7 @@ class ObjectDefinition:
                     o1 = stack.pop()
                     o2 = stack.pop()
                     if o1[1] != o2[1]: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
-                    if c[0] is not operator.add and type(o1) is str: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
+                    if c[0] is not operator.add and o1[1] is str: IB.error(self.interpreter, 'ErrorType.TYPE_ERROR') 
                     res = c[0](o1[0],o2[0])
                     if o1[1] is int: res = int(res)
                     stack.append(res)
