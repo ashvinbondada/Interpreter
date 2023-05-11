@@ -6,20 +6,20 @@ By building an interpreter, I hope to answer some of these questions.
 
 In the first version of the interpreter, I have enrolled the following features:
 
-Classes
-  Fields
+#### Classes
+  Fields\
   Methods
-Expressions
-  Booleans
-  Integer/String operations
-  Call (method)
+#### Expressions
+  Booleans\
+  Integer/String operations\
+  Call (method)\
   New (class)
-Statements
-  If
-  While
-  Print
-  Return
-  Set
+#### Statements
+  If\
+  While\
+  Print\
+  Return\
+  Set\
   Begin
   
-  Version 2: In Progress
+  ## Version 2: In Progress...
