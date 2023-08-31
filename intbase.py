@@ -85,7 +85,6 @@ class InterpreterBase:
         """
         Wrap python's input() to allow user-supplied input instead of stdin.
         """
-        print()
         if not self.inp:
             return input()  # Get input from keyboard if not input list provided
 
